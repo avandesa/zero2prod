@@ -1,2 +1,4 @@
 application:
   host: 127.1
+database:
+  require_ssl: false
