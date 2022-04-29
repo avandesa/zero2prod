@@ -1,6 +1,6 @@
-.env
-target/
-tests/
-Dockerfile
-scripts/
-migrations/
+**
+!configuration/**
+!src/**
+!Cargo.lock
+!Cargo.toml
+!sqlx-data.json
