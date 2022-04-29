@@ -6,8 +6,7 @@ use zero2prod::{
 
 use {
     once_cell::sync::Lazy,
-    secrecy::ExposeSecret,
-    sqlx::{postgres::PgPoolOptions, Connection, Executor, PgConnection, PgPool},
+    sqlx::{Connection, Executor, PgConnection, PgPool},
     uuid::Uuid,
 };
 
@@ -93,6 +92,35 @@ async fn subscribe_returns_400_when_data_is_missing() {
             response.status().as_u16(),
             "The API did not fail with 400 Bad Request when the payload was {}",
             error_msg
+        );
+    }
+}
+
+#[tokio::test]
+async fn subscribe_returns_400_when_fields_present_but_invalid() {
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+
+    let test_cases = vec![
+        ("name=&email=ursula_le_guin%40gmail.com", "empty name"),
+        ("name=Ursula&email=", "empty email"),
+        ("name=Ursula&email=definitely-not-an-email", "invalid email"),
+    ];
+
+    for (body, description) in test_cases {
+        let response = client
+            .post(&format!("{}/subscriptions", &app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(body)
+            .send()
+            .await
+            .expect("Failed to execute request");
+
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "The API did not return a 400 Bad Request when the paylod had an {}",
+            description
         );
     }
 }
