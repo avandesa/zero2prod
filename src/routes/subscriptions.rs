@@ -73,7 +73,7 @@ pub async fn subscribe(
         return HttpResponse::InternalServerError().finish();
     }
 
-    // Send a (useless) email to the new subscriber
+    // Send a confirmation email to the new subscriber
     if send_confirmation_email(&new_sub, &email_client, &base_url.0, &subscription_token)
         .await
         .is_err()
@@ -165,7 +165,11 @@ async fn send_confirmation_email(
 
     email_client
         .send_email(new_sub.email.clone(), "Welcome!", &html_body, &text_body)
-        .await?;
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to send confirmation email: {:?}", e);
+            e
+        })?;
 
     Ok(())
 }

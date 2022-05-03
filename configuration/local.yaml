@@ -3,3 +3,8 @@ application:
   base_url: "http://127.0.0.1"
 database:
   require_ssl: false
+email_client:
+  base_url: "https://api.postmarkapp.com"
+  sender_email: "zero2prod@avandesa.dev"
+  authorization_token: "POSTMARK_API_TEST"
+
