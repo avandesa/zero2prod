@@ -7,7 +7,7 @@ pub mod telemetry;
 
 pub use {
     configuration::get_configuration,
+    email_client::EmailClient,
     startup::run,
     telemetry::{get_subscriber, init_subscriber},
-    email_client::EmailClient,
 };
