@@ -8,6 +8,6 @@ pub mod telemetry;
 pub use {
     configuration::get_configuration,
     email_client::EmailClient,
-    startup::run,
+    startup::{get_connection_pool, Application},
     telemetry::{get_subscriber, init_subscriber},
 };
