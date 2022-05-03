@@ -42,7 +42,6 @@ impl EmailClient {
             .base_url
             .join("email")
             .expect("Failed to join base URL with `/email` endpoint");
-        dbg!(&url.to_string());
 
         let request_body = SendEmailRequest {
             from: self.sender.as_ref(),
