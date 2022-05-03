@@ -7,3 +7,8 @@ database:
   password: "password"
   database_name: "newsletter"
   require_ssl: true
+email_client:
+  base_url: "http://localhost/"
+  sender_email: "zero2prod@avandesa.dev"
+  authorization_token: "POSTMARK_API_TEST"
+  timeout_millis: 10000
