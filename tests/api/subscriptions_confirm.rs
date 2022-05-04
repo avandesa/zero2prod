@@ -1,11 +1,8 @@
 use crate::helpers::spawn_app;
 
-use {
-    reqwest::Url,
-    wiremock::{
-        matchers::{method, path},
-        Mock, ResponseTemplate,
-    },
+use wiremock::{
+    matchers::{method, path},
+    Mock, ResponseTemplate,
 };
 
 #[tokio::test]

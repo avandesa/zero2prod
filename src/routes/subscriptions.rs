@@ -12,6 +12,8 @@ use {
     uuid::Uuid,
 };
 
+type Trans<'c> = Transaction<'c, Postgres>;
+
 #[derive(serde::Deserialize, Debug)]
 pub struct FormData {
     email: String,
@@ -42,36 +44,24 @@ pub async fn subscribe(
     email_client: web::Data<EmailClient>,
     base_url: web::Data<ApplicationBaseUrl>,
 ) -> HttpResponse {
-    let new_sub = match form.0.try_into() {
+    let new_sub: NewSubscriber = match form.0.try_into() {
         Ok(new_sub) => new_sub,
         Err(_) => return HttpResponse::BadRequest().finish(),
     };
 
-    // Transaction start
-    let mut transaction = match pool.begin().await {
-        Ok(transaction) => transaction,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-
-    // Add the subscriber to the database
-    let subscriber_id = match insert_subscriber(&new_sub, &mut transaction).await {
-        Ok(subscriber_id) => subscriber_id,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    };
-
-    // Store the subscriber's token
-    let subscription_token = generate_subscription_token();
-    if store_token(subscriber_id, &subscription_token, &mut transaction)
-        .await
-        .is_err()
+    let subscription_token = match match match find_existing_subscriber(&new_sub.email, &pool).await
     {
-        return HttpResponse::InternalServerError().finish();
-    }
-
-    // Transaction finish
-    if transaction.commit().await.is_err() {
-        return HttpResponse::InternalServerError().finish();
-    }
+        Ok(maybe_token) => maybe_token,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    } {
+        // The user has already subscribed, so we refresh their subscription
+        Some(user_id) => refresh_existing_subscription(user_id, &pool).await,
+        // This is a new user, so store their info as a new subscription
+        None => create_new_subscription(&new_sub, &pool).await,
+    } {
+        Ok(subscription_token) => subscription_token,
+        Err(_) => return HttpResponse::InternalServerError().finish(),
+    };
 
     // Send a confirmation email to the new subscriber
     if send_confirmation_email(&new_sub, &email_client, &base_url.0, &subscription_token)
@@ -84,13 +74,82 @@ pub async fn subscribe(
     HttpResponse::Ok().finish()
 }
 
+#[tracing::instrument(name = "Creating a new subscription", skip(new_sub, pool))]
+async fn create_new_subscription(
+    new_sub: &NewSubscriber,
+    pool: &PgPool,
+) -> Result<String, sqlx::Error> {
+    // Transaction start
+    let mut transaction = pool.begin().await?;
+
+    // Add the subscriber to the database
+    let subscriber_id = insert_subscriber(new_sub, &mut transaction).await?;
+
+    // Store the subscriber's token
+    let subscription_token = generate_subscription_token();
+    store_token(&subscriber_id, &subscription_token, &mut transaction).await?;
+
+    // Transaction commit
+    transaction.commit().await?;
+
+    Ok(subscription_token)
+}
+
+#[tracing::instrument(
+    name = "Refreshing an existing subscription",
+    skip(subscriber_id, pool)
+)]
+async fn refresh_existing_subscription(
+    subscriber_id: Uuid,
+    pool: &PgPool,
+) -> Result<String, sqlx::Error> {
+    // Transaction start
+    let mut transaction = pool.begin().await?;
+
+    // Reset the subscription status
+    reset_subscription_status(&subscriber_id, &mut transaction).await?;
+
+    // Create a new subscription token
+    let subscription_token = generate_subscription_token();
+    store_token(&subscriber_id, &subscription_token, &mut transaction).await?;
+
+    // Transaction commit
+    transaction.commit().await?;
+
+    Ok(subscription_token)
+}
+
+#[tracing::instrument("Find existing subscription by email", skip(email, pool))]
+async fn find_existing_subscriber(
+    email: &SubscriberEmail,
+    pool: &PgPool,
+) -> Result<Option<Uuid>, sqlx::Error> {
+    let existing = sqlx::query!(
+        r#"SELECT id FROM subscriptions WHERE email = $1"#,
+        email.as_ref()
+    )
+    .fetch_optional(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to find existing subscription: {:?}", e);
+        e
+    })?
+    .map(|r| r.id);
+
+    if existing.is_some() {
+        tracing::info!("Existing subscription found for email {}", email.as_ref());
+    }
+
+    Ok(existing)
+}
+
 #[tracing::instrument(
     name = "Saving new subscriber details in the database",
     skip(new_sub, trans)
 )]
 async fn insert_subscriber(
     new_sub: &NewSubscriber,
-    trans: &mut Transaction<'_, Postgres>,
+    trans: &mut Trans<'_>,
 ) -> Result<Uuid, sqlx::Error> {
     let subscriber_id = Uuid::new_v4();
 
@@ -114,14 +173,33 @@ async fn insert_subscriber(
     Ok(subscriber_id)
 }
 
+#[tracing::instrument(name = "Reset subscription status", skip(subscriber_id, trans))]
+async fn reset_subscription_status(
+    subscriber_id: &Uuid,
+    trans: &mut Trans<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"UPDATE subscriptions SET status = 'pending_confirmation' WHERE id = $1"#,
+        subscriber_id,
+    )
+    .execute(trans)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to execute query: {:?}", e);
+        e
+    })?;
+
+    Ok(())
+}
+
 #[tracing::instrument(
     name = "Store subscription token in the database",
     skip(subscription_token, trans)
 )]
 async fn store_token(
-    subscriber_id: Uuid,
+    subscriber_id: &Uuid,
     subscription_token: &str,
-    trans: &mut Transaction<'_, Postgres>,
+    trans: &mut Trans<'_>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"INSERT INTO subscription_tokens (subscription_token, subscriber_id)
