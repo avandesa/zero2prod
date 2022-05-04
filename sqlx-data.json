@@ -100,7 +100,7 @@
       ],
       "nullable": [
         false,
-        true
+        false
       ],
       "parameters": {
         "Left": [
