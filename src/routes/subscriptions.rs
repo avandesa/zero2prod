@@ -182,7 +182,8 @@ async fn reset_subscription_status(
     trans: &mut Trans<'_>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        r#"UPDATE subscriptions SET status = 'pending_confirmation' WHERE id = $1"#,
+        r#"UPDATE subscriptions SET status = 'pending_confirmation', subscribed_at = $1 WHERE id = $2"#,
+        Utc::now(),
         subscriber_id,
     )
     .execute(trans)
