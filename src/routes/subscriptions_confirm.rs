@@ -1,7 +1,8 @@
-use crate::domain::SubscriptionToken;
+use crate::domain::{SubTokenValidationError, SubscriptionToken};
 
 use {
-    actix_web::{web, HttpResponse},
+    actix_web::{http::StatusCode, web, HttpResponse, ResponseError},
+    anyhow::Context,
     serde::Deserialize,
     sqlx::PgPool,
     uuid::Uuid,
@@ -13,32 +14,50 @@ pub struct Parameters {
 }
 
 impl TryFrom<Parameters> for SubscriptionToken {
-    type Error = String;
+    type Error = SubTokenValidationError;
 
     fn try_from(params: Parameters) -> Result<Self, Self::Error> {
         SubscriptionToken::parse(params.subscription_token)
     }
 }
 
-#[tracing::instrument(name = "Confirm a pending subscriber", skip(params, pool))]
-pub async fn confirm(params: web::Query<Parameters>, pool: web::Data<PgPool>) -> HttpResponse {
-    let subscription_token: SubscriptionToken = match params.0.try_into() {
-        Ok(subscription_token) => subscription_token,
-        Err(_) => return HttpResponse::BadRequest().finish(),
-    };
+#[derive(Debug, thiserror::Error)]
+pub enum SubConfirmationError {
+    #[error("{0}")]
+    MalformedToken(#[from] SubTokenValidationError),
+    #[error("Token is not valid")]
+    InvalidToken,
+    #[error(transparent)]
+    Unexpected(#[from] anyhow::Error),
+}
 
-    let sub_id = match match get_subscriber_id_from_token(&subscription_token, &pool).await {
-        Ok(id) => id,
-        Err(_) => return HttpResponse::InternalServerError().finish(),
-    } {
-        Some(id) => id,
-        None => return HttpResponse::Unauthorized().finish(),
-    };
-
-    match confirm_subscriber(&sub_id, &pool).await {
-        Ok(_) => HttpResponse::Ok().finish(),
-        Err(_) => HttpResponse::InternalServerError().finish(),
+impl ResponseError for SubConfirmationError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            SubConfirmationError::MalformedToken(_) => StatusCode::BAD_REQUEST,
+            SubConfirmationError::InvalidToken => StatusCode::UNAUTHORIZED,
+            SubConfirmationError::Unexpected(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
     }
+}
+
+#[tracing::instrument(name = "Confirm a pending subscriber", skip(params, pool))]
+pub async fn confirm(
+    params: web::Query<Parameters>,
+    pool: web::Data<PgPool>,
+) -> Result<HttpResponse, SubConfirmationError> {
+    let subscription_token: SubscriptionToken = params.0.try_into()?;
+
+    let sub_id = get_subscriber_id_from_token(&subscription_token, &pool)
+        .await
+        .context("Failed to get subscriber ID from token")?
+        .ok_or(SubConfirmationError::InvalidToken)?;
+
+    confirm_subscriber(&sub_id, &pool)
+        .await
+        .context("Failed to mark subscriber as confirmed")?;
+
+    Ok(HttpResponse::Ok().finish())
 }
 
 #[tracing::instrument(name = "Mark a subscriber as confirmed", skip(sub_id, pool))]
@@ -48,11 +67,7 @@ async fn confirm_subscriber(sub_id: &Uuid, pool: &PgPool) -> Result<(), sqlx::Er
         sub_id
     )
     .execute(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    .await?;
 
     Ok(())
 }
@@ -67,11 +82,7 @@ async fn get_subscriber_id_from_token(
         token.as_ref(),
     )
     .fetch_optional(pool)
-    .await
-    .map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    .await?;
 
     Ok(result.map(|r| r.subscriber_id))
 }

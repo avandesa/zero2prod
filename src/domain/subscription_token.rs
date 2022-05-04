@@ -1,15 +1,21 @@
 use unicode_segmentation::UnicodeSegmentation;
 
+#[derive(Debug, thiserror::Error)]
+pub enum SubTokenValidationError {
+    #[error("Token must be 25 characters long")]
+    InvalidLength,
+    #[error("Token may only be ASCII alphanumeric characters")]
+    NotAlphanumeric,
+}
+
 pub struct SubscriptionToken(String);
 
 impl SubscriptionToken {
-    pub fn parse(s: String) -> Result<Self, String> {
-        let has_invalid_length = s.graphemes(true).count() != 25;
-        let is_not_alphanumeric = s.chars().any(|c| !c.is_alphanumeric());
-        dbg!(&s, has_invalid_length, is_not_alphanumeric);
-
-        if has_invalid_length || is_not_alphanumeric {
-            Err("Invalid subscription token".to_string())
+    pub fn parse(s: String) -> Result<Self, SubTokenValidationError> {
+        if s.graphemes(true).count() != 25 {
+            Err(SubTokenValidationError::InvalidLength)
+        } else if s.chars().any(|c| !c.is_alphanumeric()) {
+            Err(SubTokenValidationError::NotAlphanumeric)
         } else {
             Ok(Self(s))
         }
