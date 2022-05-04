@@ -31,42 +31,6 @@ impl TryFrom<FormData> for NewSubscriber {
     }
 }
 
-fn error_chain_fmt(
-    e: &impl std::error::Error,
-    f: &mut std::fmt::Formatter<'_>,
-) -> std::fmt::Result {
-    writeln!(f, "{}\n", e)?;
-    let mut current = e.source();
-    while let Some(cause) = current {
-        writeln!(f, "Caused by:\n\t{}", cause)?;
-        current = cause.source();
-    }
-    Ok(())
-}
-
-pub struct StoreTokenError(sqlx::Error);
-
-impl std::fmt::Display for StoreTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "A database error was encountered while trying to store a suscription token"
-        )
-    }
-}
-
-impl std::fmt::Debug for StoreTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
-
-impl std::error::Error for StoreTokenError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.0)
-    }
-}
-
 #[derive(thiserror::Error, Debug)]
 pub enum SubscribeError {
     #[error("{0}")]
@@ -277,7 +241,7 @@ async fn store_token(
     subscriber_id: &Uuid,
     subscription_token: &str,
     trans: &mut Trans<'_>,
-) -> Result<(), StoreTokenError> {
+) -> Result<(), sqlx::Error> {
     sqlx::query!(
         r#"INSERT INTO subscription_tokens (subscription_token, subscriber_id, is_valid)
         VALUES ($1, $2, true)"#,
@@ -285,8 +249,7 @@ async fn store_token(
         subscriber_id,
     )
     .execute(trans)
-    .await
-    .map_err(StoreTokenError)?;
+    .await?;
 
     Ok(())
 }
