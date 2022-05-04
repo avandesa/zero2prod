@@ -1,3 +1,5 @@
+use crate::domain::SubscriptionToken;
+
 use {
     actix_web::{web, HttpResponse},
     serde::Deserialize,
@@ -10,9 +12,22 @@ pub struct Parameters {
     subscription_token: String,
 }
 
+impl TryFrom<Parameters> for SubscriptionToken {
+    type Error = String;
+
+    fn try_from(params: Parameters) -> Result<Self, Self::Error> {
+        SubscriptionToken::parse(params.subscription_token)
+    }
+}
+
 #[tracing::instrument(name = "Confirm a pending subscriber", skip(params, pool))]
 pub async fn confirm(params: web::Query<Parameters>, pool: web::Data<PgPool>) -> HttpResponse {
-    let sub_id = match match get_subscriber_id_from_token(&params.subscription_token, &pool).await {
+    let subscription_token: SubscriptionToken = match params.0.try_into() {
+        Ok(subscription_token) => subscription_token,
+        Err(_) => return HttpResponse::BadRequest().finish(),
+    };
+
+    let sub_id = match match get_subscriber_id_from_token(&subscription_token, &pool).await {
         Ok(id) => id,
         Err(_) => return HttpResponse::InternalServerError().finish(),
     } {
@@ -44,12 +59,12 @@ async fn confirm_subscriber(sub_id: &Uuid, pool: &PgPool) -> Result<(), sqlx::Er
 
 #[tracing::instrument(name = "Get subscriber_id from token", skip(token, pool))]
 async fn get_subscriber_id_from_token(
-    token: &str,
+    token: &SubscriptionToken,
     pool: &PgPool,
 ) -> Result<Option<Uuid>, sqlx::Error> {
     let result = sqlx::query!(
         r#"SELECT subscriber_id, is_valid FROM subscription_tokens WHERE subscription_token = $1 AND is_valid = true"#,
-        token
+        token.as_ref(),
     )
     .fetch_optional(pool)
     .await

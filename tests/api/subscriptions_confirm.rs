@@ -111,3 +111,29 @@ async fn using_invalidated_token_returns_401() {
         .expect("Failed to fetch saved subscription");
     assert_eq!(saved.status, "pending_confirmation");
 }
+
+#[tokio::test]
+async fn malformed_token_returns_400() {
+    let app = spawn_app().await;
+
+    let test_cases = vec![
+        ("tooshort", "too short"),
+        ("too_long__________________", "too long"),
+        ("has spaces_______________", "not alphanumeric"),
+    ];
+
+    for (phony_token, description) in test_cases {
+        let phony_link = format!(
+            "http://127.0.0.1:{}/subscriptions/confirm?subscription_token={}",
+            app.port, phony_token,
+        );
+        let response = reqwest::get(phony_link).await.unwrap();
+
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "The API did not return a 400 Bad Request when the paylod had an {}",
+            description
+        );
+    }
+}
