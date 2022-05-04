@@ -109,6 +109,9 @@ async fn refresh_existing_subscription(
     // Reset the subscription status
     reset_subscription_status(&subscriber_id, &mut transaction).await?;
 
+    // Invalidate previous tokens
+    invalidate_previous_tokens(&subscriber_id, &mut transaction).await?;
+
     // Create a new subscription token
     let subscription_token = generate_subscription_token();
     store_token(&subscriber_id, &subscription_token, &mut transaction).await?;
@@ -193,6 +196,28 @@ async fn reset_subscription_status(
 }
 
 #[tracing::instrument(
+    name = "Invalidate previous subscription tokens",
+    skip(subscriber_id, trans)
+)]
+async fn invalidate_previous_tokens(
+    subscriber_id: &Uuid,
+    trans: &mut Trans<'_>,
+) -> Result<(), sqlx::Error> {
+    sqlx::query!(
+        r#"UPDATE subscription_tokens SET is_valid = false WHERE subscriber_id = $1"#,
+        subscriber_id
+    )
+    .execute(trans)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to execute query: {:?}", e);
+        e
+    })?;
+
+    Ok(())
+}
+
+#[tracing::instrument(
     name = "Store subscription token in the database",
     skip(subscription_token, trans)
 )]
@@ -202,8 +227,8 @@ async fn store_token(
     trans: &mut Trans<'_>,
 ) -> Result<(), sqlx::Error> {
     sqlx::query!(
-        r#"INSERT INTO subscription_tokens (subscription_token, subscriber_id)
-        VALUES ($1, $2)"#,
+        r#"INSERT INTO subscription_tokens (subscription_token, subscriber_id, is_valid)
+        VALUES ($1, $2, true)"#,
         subscription_token,
         subscriber_id,
     )

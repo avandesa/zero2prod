@@ -67,3 +67,47 @@ async fn clicking_confirmation_link_confirms_subscriber() {
     assert_eq!(saved.name, "le guin");
     assert_eq!(saved.status, "confirmed");
 }
+
+#[tokio::test]
+async fn using_nonexistent_token_returns_401() {
+    let app = spawn_app().await;
+    let phony_token = "0".repeat(25);
+    let phony_link = format!(
+        "http://127.0.0.1:{}/subscriptions/confirm?subscription_token={}",
+        app.port, phony_token,
+    );
+
+    let response = reqwest::get(phony_link).await.unwrap();
+
+    assert_eq!(response.status().as_u16(), 401);
+}
+
+#[tokio::test]
+async fn using_invalidated_token_returns_401() {
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/email"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+
+    // Get the first confirmation links
+    let email_request = &app.email_server.received_requests().await.unwrap()[0];
+    let confirmation_links = app.get_confirmation_links(&email_request);
+
+    // Subscribe again, invalidating the previous links
+    app.post_subscriptions(body.into()).await;
+
+    let response = reqwest::get(confirmation_links.html).await.unwrap();
+    assert_eq!(response.status().as_u16(), 401);
+
+    let saved = sqlx::query!("SELECT status FROM subscriptions")
+        .fetch_one(&app.db_pool)
+        .await
+        .expect("Failed to fetch saved subscription");
+    assert_eq!(saved.status, "pending_confirmation");
+}

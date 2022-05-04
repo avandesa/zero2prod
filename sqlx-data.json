@@ -1,18 +1,5 @@
 {
   "db": "PostgreSQL",
-  "9ca563dbb06bcd0041ceff538c654dec2441ea0959fa67d4d7bcfeffad442654": {
-    "describe": {
-      "columns": [],
-      "nullable": [],
-      "parameters": {
-        "Left": [
-          "Text",
-          "Uuid"
-        ]
-      }
-    },
-    "query": "INSERT INTO subscription_tokens (subscription_token, subscriber_id)\n        VALUES ($1, $2)"
-  },
   "a5718e3b2728cf2457b1db73719e23841a2bcabe744c35711bbca7922f43e454": {
     "describe": {
       "columns": [],
@@ -57,25 +44,30 @@
     },
     "query": "SELECT id FROM subscriptions WHERE email = $1"
   },
-  "ad120337ee606be7b8d87238e2bb765d0da8ee61b1a3bc142414c4305ec5e17f": {
+  "af39f6179a1701ac97db410e2cfb226a327de606ab9d2ce67abf4d6c42084099": {
     "describe": {
-      "columns": [
-        {
-          "name": "subscriber_id",
-          "ordinal": 0,
-          "type_info": "Uuid"
-        }
-      ],
-      "nullable": [
-        false
-      ],
+      "columns": [],
+      "nullable": [],
       "parameters": {
         "Left": [
-          "Text"
+          "Uuid"
         ]
       }
     },
-    "query": "SELECT subscriber_id FROM subscription_tokens WHERE subscription_token = $1"
+    "query": "UPDATE subscription_tokens SET is_valid = false WHERE subscriber_id = $1"
+  },
+  "d137111c91f264dcea401515bf2913e68c92b774e03cf22bf5703f44f1633dad": {
+    "describe": {
+      "columns": [],
+      "nullable": [],
+      "parameters": {
+        "Left": [
+          "Text",
+          "Uuid"
+        ]
+      }
+    },
+    "query": "INSERT INTO subscription_tokens (subscription_token, subscriber_id, is_valid)\n        VALUES ($1, $2, true)"
   },
   "e6822c9e162eabc20338cc27d51a8e80578803ec1589c234d93c3919d14a96a6": {
     "describe": {
@@ -91,5 +83,31 @@
       }
     },
     "query": "\n        INSERT INTO subscriptions (id, email, name, subscribed_at, status)\n        VALUES ($1, $2, $3, $4, 'pending_confirmation')\n        "
+  },
+  "f5d0fb44281ac3619ace81907ec7de7e62ba107c7f844b82001922992b37ab1d": {
+    "describe": {
+      "columns": [
+        {
+          "name": "subscriber_id",
+          "ordinal": 0,
+          "type_info": "Uuid"
+        },
+        {
+          "name": "is_valid",
+          "ordinal": 1,
+          "type_info": "Bool"
+        }
+      ],
+      "nullable": [
+        false,
+        true
+      ],
+      "parameters": {
+        "Left": [
+          "Text"
+        ]
+      }
+    },
+    "query": "SELECT subscriber_id, is_valid FROM subscription_tokens WHERE subscription_token = $1 AND is_valid = true"
   }
 }
