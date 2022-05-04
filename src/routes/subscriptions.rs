@@ -1,5 +1,5 @@
 use crate::{
-    domain::{NewSubscriber, SubscriberEmail, SubscriberName},
+    domain::{NewSubscriber, SubscriberEmail, SubscriberName, SubscriberNameValidationError},
     startup::ApplicationBaseUrl,
     EmailClient,
 };
@@ -21,12 +21,21 @@ pub struct FormData {
     name: String,
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum NewSubscriberValidationError {
+    #[error("Invalid email")]
+    InvalidEmail,
+    #[error(transparent)]
+    InvalidName(#[from] SubscriberNameValidationError),
+}
+
 impl TryFrom<FormData> for NewSubscriber {
-    type Error = String;
+    type Error = NewSubscriberValidationError;
 
     fn try_from(form: FormData) -> Result<Self, Self::Error> {
         let name = SubscriberName::parse(form.name)?;
-        let email = SubscriberEmail::parse(form.email)?;
+        let email =
+            SubscriberEmail::parse(form.email).ok_or(NewSubscriberValidationError::InvalidEmail)?;
         Ok(NewSubscriber { email, name })
     }
 }
@@ -34,7 +43,7 @@ impl TryFrom<FormData> for NewSubscriber {
 #[derive(thiserror::Error, Debug)]
 pub enum SubscribeError {
     #[error("{0}")]
-    ValidationError(String),
+    ValidationError(#[from] NewSubscriberValidationError),
     #[error(transparent)]
     UnexpectedError(#[from] anyhow::Error),
 }

@@ -124,7 +124,7 @@ impl DatabaseSettings {
 }
 
 impl EmailClientSettings {
-    pub fn sender(&self) -> Result<SubscriberEmail, String> {
+    pub fn sender(&self) -> Option<SubscriberEmail> {
         SubscriberEmail::parse(self.sender_email.clone())
     }
 

@@ -1,17 +1,28 @@
 use {serde::Deserialize, unicode_segmentation::UnicodeSegmentation};
 
+#[derive(Debug, thiserror::Error)]
+pub enum SubscriberNameValidationError {
+    #[error("Name cannot be empty")]
+    EmptyOrWhitespace,
+    #[error("Name must be shorter than 256 characters")]
+    TooLong,
+    #[error("Name may not contain any of the following characters: /()\"<>\\{{}}")]
+    ForbiddenCharacters,
+}
+
 #[derive(Deserialize, Debug)]
 pub struct SubscriberName(String);
 
 impl SubscriberName {
-    pub fn parse(s: String) -> Result<Self, String> {
-        let is_empty_or_whitespace = s.trim().is_empty();
-        let is_too_long = s.graphemes(true).count() > 256;
+    pub fn parse(s: String) -> Result<Self, SubscriberNameValidationError> {
         let forbidden_chars = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
-        let contains_forbidden_chars = s.chars().any(|g| forbidden_chars.contains(&g));
 
-        if is_empty_or_whitespace || is_too_long || contains_forbidden_chars {
-            Err(format!("{} is not a valid subscriber name", s))
+        if s.trim().is_empty() {
+            Err(SubscriberNameValidationError::EmptyOrWhitespace)
+        } else if s.graphemes(true).count() > 256 {
+            Err(SubscriberNameValidationError::TooLong)
+        } else if s.chars().any(|g| forbidden_chars.contains(&g)) {
+            Err(SubscriberNameValidationError::ForbiddenCharacters)
         } else {
             Ok(Self(s))
         }
