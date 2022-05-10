@@ -120,7 +120,7 @@ async fn create_unconfirmed_subscriber(app: &TestApp) -> ConfirmationLinks {
         .unwrap()
         .pop()
         .unwrap();
-    app.get_confirmation_links(&email_request)
+    app.get_confirmation_links(email_request)
 }
 
 async fn create_confirmed_subscriber(app: &TestApp) {

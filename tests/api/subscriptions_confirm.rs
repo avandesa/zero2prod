@@ -29,7 +29,7 @@ async fn link_returned_by_subscribe_returns_200_when_called() {
 
     app.post_subscriptions(body.into()).await;
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
-    let confirmation_links = app.get_confirmation_links(&email_request);
+    let confirmation_links = app.get_confirmation_links(email_request);
 
     let response = reqwest::get(confirmation_links.html).await.unwrap();
 
@@ -50,7 +50,7 @@ async fn clicking_confirmation_link_confirms_subscriber() {
     app.post_subscriptions(body.into()).await;
 
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
-    let confirmation_links = app.get_confirmation_links(&email_request);
+    let confirmation_links = app.get_confirmation_links(email_request);
 
     reqwest::get(confirmation_links.html)
         .await
@@ -97,7 +97,7 @@ async fn using_invalidated_token_returns_401() {
 
     // Get the first confirmation links
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
-    let confirmation_links = app.get_confirmation_links(&email_request);
+    let confirmation_links = app.get_confirmation_links(email_request);
 
     // Subscribe again, invalidating the previous links
     app.post_subscriptions(body.into()).await;
