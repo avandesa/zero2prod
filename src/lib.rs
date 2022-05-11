@@ -6,6 +6,7 @@ pub mod routes;
 pub mod session_state;
 pub mod startup;
 pub mod telemetry;
+mod utils;
 
 pub use {
     configuration::get_configuration,

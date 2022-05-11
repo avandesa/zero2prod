@@ -1,4 +1,7 @@
-use crate::session_state::TypedSession;
+use crate::{
+    session_state::TypedSession,
+    utils::{e500, see_other},
+};
 
 use {
     actix_web::{
@@ -10,13 +13,6 @@ use {
     uuid::Uuid,
 };
 
-fn e500<T>(e: T) -> actix_web::Error
-where
-    T: std::fmt::Debug + std::fmt::Display + 'static,
-{
-    actix_web::error::ErrorInternalServerError(e)
-}
-
 #[tracing::instrument(name = "Get admin dashboard", skip(session))]
 pub async fn admin_dashboard(
     session: TypedSession,
@@ -25,10 +21,7 @@ pub async fn admin_dashboard(
     let username = if let Some(user_id) = session.get_user_id().map_err(e500)? {
         get_username(&user_id, &db_pool).await.map_err(e500)?
     } else {
-        let response = HttpResponse::SeeOther()
-            .insert_header((LOCATION, "/login"))
-            .finish();
-        return Ok(response);
+        return Ok(see_other("/login"));
     };
 
     let response = HttpResponse::Ok()
