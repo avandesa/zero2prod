@@ -13,3 +13,4 @@ email_client:
   sender_email: "zero2prod@avandesa.dev"
   authorization_token: "POSTMARK_API_TEST"
   timeout_millis: 10000
+redis_uri: "redis://127.0.0.1:6379"
