@@ -18,10 +18,8 @@ async fn newsletters_not_delivered_to_unconfirmed_subscribers() {
 
     let newsletter_requst_body = serde_json::json!({
         "title": "Newsletter title",
-        "content": {
-            "text": "Newsletter text body",
-            "html": "<p>Newsletter HTML body</p>"
-        }
+        "text_content": "Newsletter text body",
+        "html_content": "<p>Newsletter HTML body</p>"
     });
     app.login_test_user().await;
     let response = app.post_newsletters(&newsletter_requst_body).await;
@@ -42,10 +40,8 @@ async fn newsletters_delivered_to_confirmed_subscribers() {
 
     let newsletter_requst_body = serde_json::json!({
         "title": "Newsletter title",
-        "content": {
-            "text": "Newsletter text body",
-            "html": "<p>Newsletter HTML body</p>"
-        }
+        "text_content": "Newsletter text body",
+        "html_content": "<p>Newsletter HTML body</p>"
     });
     app.login_test_user().await;
     let response = app.post_newsletters(&newsletter_requst_body).await;
@@ -60,28 +56,22 @@ async fn newsletters_returns_400_for_invalid_body() {
     let test_cases = vec![
         (
             serde_json::json!({
-                "content": {
-                    "text": "Newsletter body as plain text",
-                    "html": "<p>Newsletter body as HTML</p>",
-                }
+                "text_content": "Newsletter body as plain text",
+                "html_content": "<p>Newsletter body as HTML</p>",
             }),
             "missing title",
         ),
         (
-            serde_json::json!({"title": "Newsletter!"}),
-            "missing content",
-        ),
-        (
             serde_json::json!({
                 "title": "Newsletter!",
-                "content": { "html": "<p>Newsletter body as HTML</p>" }
+                "html_content": "<p>Newsletter body as HTML</p>"
             }),
             "missing text",
         ),
         (
             serde_json::json!({
                 "title": "Newsletter!",
-                "content": { "text": "Newsletter body as HTML" }
+                "text_content": "Newsletter body as text"
             }),
             "missing html",
         ),

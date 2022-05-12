@@ -9,13 +9,8 @@ use {
 #[derive(Debug, serde::Deserialize)]
 pub struct BodyData {
     title: String,
-    content: Content,
-}
-
-#[derive(Debug, serde::Deserialize)]
-pub struct Content {
-    html: String,
-    text: String,
+    html_content: String,
+    text_content: String,
 }
 
 #[derive(Debug)]
@@ -43,7 +38,7 @@ impl ResponseError for PublishError {
     fields(title = %body.title)
 )]
 pub async fn publish_newsletter(
-    body: web::Json<BodyData>,
+    body: web::Form<BodyData>,
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
     request: HttpRequest,
@@ -58,8 +53,8 @@ pub async fn publish_newsletter(
                 .send_email(
                     &subscriber.email,
                     &body.title,
-                    &body.content.html,
-                    &body.content.text,
+                    &body.html_content,
+                    &body.text_content,
                 )
                 .await
                 .with_context(|| {
