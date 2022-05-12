@@ -106,7 +106,6 @@ async fn run(
             .route("/health_check", web::get().to(routes::health_check))
             .route("/subscriptions", web::post().to(routes::subscribe))
             .route("/subscriptions/confirm", web::get().to(routes::confirm))
-            .route("/newsletters", web::post().to(routes::publish_newsletter))
             .route("/", web::get().to(routes::home))
             .route("/login", web::get().to(routes::login_form))
             .route("/login", web::post().to(routes::login))
@@ -116,7 +115,8 @@ async fn run(
                     .route("/dashboard", web::get().to(routes::admin_dashboard))
                     .route("/password", web::get().to(routes::change_password_form))
                     .route("/password", web::post().to(routes::change_password))
-                    .route("/logout", web::post().to(routes::log_out)),
+                    .route("/logout", web::post().to(routes::log_out))
+                    .route("/newsletters", web::post().to(routes::publish_newsletter)),
             )
             .app_data(pool.clone())
             .app_data(email_client.clone())
