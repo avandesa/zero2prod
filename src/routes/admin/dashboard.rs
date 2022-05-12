@@ -1,7 +1,4 @@
-use crate::{
-    session_state::TypedSession,
-    utils::{e500, see_other},
-};
+use crate::{authentication::UserId, utils::e500};
 
 use {
     actix_web::{http::header::ContentType, web, HttpResponse},
@@ -10,16 +7,13 @@ use {
     uuid::Uuid,
 };
 
-#[tracing::instrument(name = "Get admin dashboard", skip(session))]
+#[tracing::instrument(name = "Get admin dashboard", skip(db_pool))]
 pub async fn admin_dashboard(
-    session: TypedSession,
+    user_id: web::ReqData<UserId>,
     db_pool: web::Data<PgPool>,
 ) -> Result<HttpResponse, actix_web::Error> {
-    let username = if let Some(user_id) = session.get_user_id().map_err(e500)? {
-        get_username(&user_id, &db_pool).await.map_err(e500)?
-    } else {
-        return Ok(see_other("/login"));
-    };
+    let user_id = user_id.into_inner();
+    let username = get_username(&user_id, &db_pool).await.map_err(e500)?;
 
     let response = HttpResponse::Ok()
         .content_type(ContentType::html())
@@ -37,7 +31,7 @@ pub async fn admin_dashboard(
     <ol>
             <li><a href="/admin/password">Change password</a></li>
             <li>
-                <form name="logoutForm" action="/logout" method="post">
+                <form name="logoutForm" action="/admin/logout" method="post">
                     <input type="submit" value="Logout">
                 </form>
             </li
