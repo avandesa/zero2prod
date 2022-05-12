@@ -4,10 +4,7 @@ use crate::{
 };
 
 use {
-    actix_web::{
-        http::header::{ContentType, LOCATION},
-        web, HttpResponse,
-    },
+    actix_web::{http::header::ContentType, web, HttpResponse},
     anyhow::{Context, Result},
     sqlx::PgPool,
     uuid::Uuid,
@@ -36,6 +33,15 @@ pub async fn admin_dashboard(
 </head>
 <body>
     <p>Welcome {username}!</p>
+    <p>Available actions:</p>
+    <ol>
+            <li><a href="/admin/password">Change password</a></li>
+            <li>
+                <form name="logoutForm" action="/logout" method="post">
+                    <input type="submit" value="Logout">
+                </form>
+            </li
+    </ol>
 </body>
 </html>
             "#
@@ -44,7 +50,7 @@ pub async fn admin_dashboard(
     Ok(response)
 }
 
-async fn get_username(user_id: &Uuid, db_pool: &PgPool) -> Result<String> {
+pub async fn get_username(user_id: &Uuid, db_pool: &PgPool) -> Result<String> {
     let row = sqlx::query!(r#"SELECT username FROM users WHERE user_id = $1"#, user_id,)
         .fetch_one(db_pool)
         .await

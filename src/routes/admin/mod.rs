@@ -1,3 +1,5 @@
 mod dashboard;
+mod logout;
+mod password;
 
-pub use dashboard::*;
+pub use {dashboard::*, logout::*, password::*};

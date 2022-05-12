@@ -5,7 +5,7 @@ use crate::{
 };
 
 use {
-    actix_web::{error::InternalError, http::header::LOCATION, web, HttpResponse},
+    actix_web::{error::InternalError, web, HttpResponse},
     actix_web_flash_messages::FlashMessage,
     secrecy::Secret,
     serde::Deserialize,

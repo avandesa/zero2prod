@@ -14,11 +14,11 @@ async fn error_flash_message_set_on_failure() {
     assert_is_redirected_to(&response, "/login");
 
     // Part 2 - When we get the login page, the error message is displayed
-    let html_page = dbg!(app.get_login_html().await);
+    let html_page = app.get_login_html().await;
     assert!(html_page.contains(r#"<p><i>Authentication failed</i></p>"#));
 
     // Part 3 - When we refresh the login page, the error message is no longer displayed
-    let html_page = dbg!(app.get_login_html().await);
+    let html_page = app.get_login_html().await;
     assert!(!html_page.contains(r#"<p><i>Authentication failed</i></p>"#));
 }
 
