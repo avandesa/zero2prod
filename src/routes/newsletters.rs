@@ -1,4 +1,4 @@
-use crate::{domain::SubscriberEmail, email_client::EmailClient};
+use crate::{domain::SubscriberEmail, email_client::EmailClient, utils::see_other};
 
 use {
     actix_web::{http::StatusCode, web, HttpRequest, HttpResponse, ResponseError},
@@ -66,7 +66,7 @@ pub async fn publish_newsletter(
         }
     }
 
-    Ok(HttpResponse::Ok().finish())
+    Ok(see_other("/admin/newsletters"))
 }
 
 #[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]

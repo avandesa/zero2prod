@@ -116,6 +116,7 @@ async fn run(
                     .route("/password", web::get().to(routes::change_password_form))
                     .route("/password", web::post().to(routes::change_password))
                     .route("/logout", web::post().to(routes::log_out))
+                    .route("/newsletters", web::get().to(routes::get_newsletter_page))
                     .route("/newsletters", web::post().to(routes::publish_newsletter)),
             )
             .app_data(pool.clone())

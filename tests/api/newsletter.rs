@@ -89,9 +89,16 @@ async fn newsletters_returns_400_for_invalid_body() {
 }
 
 #[tokio::test]
-async fn logged_out_users_redirected() {
+async fn logged_out_users_redirected_post() {
     let app = spawn_app().await;
     let response = app.post_newsletters(&serde_json::json!({})).await;
+    assert_is_redirected_to(&response, "/login");
+}
+
+#[tokio::test]
+async fn logged_out_users_redirected_get() {
+    let app = spawn_app().await;
+    let response = app.get_newsletter_page().await;
     assert_is_redirected_to(&response, "/login");
 }
 
