@@ -1,7 +1,12 @@
-use crate::{domain::SubscriberEmail, email_client::EmailClient, utils::e500};
+use crate::{
+    domain::SubscriberEmail,
+    email_client::EmailClient,
+    utils::{e500, see_other},
+};
 
 use {
     actix_web::{web, HttpRequest, HttpResponse},
+    actix_web_flash_messages::FlashMessage,
     anyhow::{Context, Result},
     sqlx::PgPool,
 };
@@ -54,7 +59,8 @@ pub async fn publish_newsletter(
         }
     }
 
-    Ok(HttpResponse::Ok().finish())
+    FlashMessage::info("Newsletter delivered successfully").send();
+    Ok(see_other("/admin/newsletters"))
 }
 
 #[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]

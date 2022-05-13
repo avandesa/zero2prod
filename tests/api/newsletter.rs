@@ -24,12 +24,16 @@ async fn newsletters_not_delivered_to_unconfirmed_subscribers() {
     app.login_test_user().await;
     let response = app.post_newsletters(&newsletter_requst_body).await;
 
-    assert_eq!(response.status().as_u16(), 200);
+    assert_is_redirected_to(&response, "/admin/newsletters");
+    // Follow the redirect
+    let html = app.get_newsletter_page().await.text().await.unwrap();
+    assert!(html.contains("<p><i>Newsletter delivered successfully</i></p>"));
 }
 
 #[tokio::test]
 async fn newsletters_delivered_to_confirmed_subscribers() {
     let app = spawn_app().await;
+    app.login_test_user().await;
     create_confirmed_subscriber(&app).await;
     Mock::given(path("/email"))
         .and(method("POST"))
@@ -38,15 +42,20 @@ async fn newsletters_delivered_to_confirmed_subscribers() {
         .mount(&app.email_server)
         .await;
 
+    // Send the newsletter
     let newsletter_requst_body = serde_json::json!({
         "title": "Newsletter title",
         "text_content": "Newsletter text body",
         "html_content": "<p>Newsletter HTML body</p>"
     });
-    app.login_test_user().await;
     let response = app.post_newsletters(&newsletter_requst_body).await;
 
-    assert_eq!(response.status().as_u16(), 200);
+    // Confirm we're redirected back to the newsletters page
+    assert_is_redirected_to(&response, "/admin/newsletters");
+
+    // Follow the redirect
+    let html = app.get_newsletter_page().await.text().await.unwrap();
+    assert!(html.contains("<p><i>Newsletter delivered successfully</i></p>"));
 }
 
 #[tokio::test]
