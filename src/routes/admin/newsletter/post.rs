@@ -1,7 +1,7 @@
-use crate::{domain::SubscriberEmail, email_client::EmailClient, utils::see_other};
+use crate::{domain::SubscriberEmail, email_client::EmailClient, utils::e500};
 
 use {
-    actix_web::{http::StatusCode, web, HttpRequest, HttpResponse, ResponseError},
+    actix_web::{web, HttpRequest, HttpResponse},
     anyhow::{Context, Result},
     sqlx::PgPool,
 };
@@ -18,20 +18,6 @@ struct ConfirmedSubscriber {
     email: SubscriberEmail,
 }
 
-#[derive(Debug, thiserror::Error)]
-pub enum PublishError {
-    #[error(transparent)]
-    Unexpected(#[from] anyhow::Error),
-}
-
-impl ResponseError for PublishError {
-    fn error_response(&self) -> HttpResponse {
-        match self {
-            PublishError::Unexpected(_) => HttpResponse::new(StatusCode::INTERNAL_SERVER_ERROR),
-        }
-    }
-}
-
 #[tracing::instrument(
     name = "Publish a newsletter issue",
     skip(body, pool, email_client),
@@ -42,10 +28,11 @@ pub async fn publish_newsletter(
     pool: web::Data<PgPool>,
     email_client: web::Data<EmailClient>,
     request: HttpRequest,
-) -> Result<HttpResponse, PublishError> {
+) -> Result<HttpResponse, actix_web::Error> {
     let subscribers = get_confirmed_subscribers(&pool)
         .await
-        .context("Failed to get list of confirmed subscribers")?;
+        .context("Failed to get list of confirmed subscribers")
+        .map_err(e500)?;
 
     for subscriber in subscribers {
         match subscriber {
@@ -59,14 +46,15 @@ pub async fn publish_newsletter(
                 .await
                 .with_context(|| {
                     format!("Failed to send newsletter issue to {}", &subscriber.email)
-                })?,
+                })
+                .map_err(e500)?,
             Err(error) => {
                 tracing::warn!(error.cause_chain = ?error, "Skipping a confirmed subscriber. Their stored contact details are invalid")
             }
         }
     }
 
-    Ok(see_other("/admin/newsletters"))
+    Ok(HttpResponse::Ok().finish())
 }
 
 #[tracing::instrument(name = "Get confirmed subscribers", skip(pool))]
